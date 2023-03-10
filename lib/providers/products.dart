@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
 
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import './product.dart';
 
 class Products with ChangeNotifier {
@@ -64,17 +66,41 @@ class Products with ChangeNotifier {
   //   notifyListeners();
   // }
 
-  void addProduct(Product product) {
-    final newProduct = Product(
-      title: product.title,
-      description: product.description,
-      price: product.price,
-      imageUrl: product.imageUrl,
-      id: DateTime.now().toString(),
-    );
-    _items.add(newProduct);
-    // _items.insert(0, newProduct); // at the start of the list
-    notifyListeners();
+  Future<void> fetchAndSetProducts() async {
+    const url = 'https://shop-49ff6-default-rtdb.firebaseio.com/products.json';
+
+    try {
+      final response = await http.get(Uri.parse(url));
+    } catch (error) {
+      throw (error);
+    }
+  }
+
+  Future<void> addProduct(Product product) async {
+    const url = 'https://shop-49ff6-default-rtdb.firebaseio.com/products.json';
+    try {
+      final response = await http.post(Uri.parse(url),
+          body: json.encode({
+            'title': product.title,
+            'description': product.description,
+            'imageUrl': product.imageUrl,
+            'price': product.price,
+            'isFavorite': product.isFavorite,
+          }));
+      final newProduct = Product(
+        title: product.title,
+        description: product.description,
+        price: product.price,
+        imageUrl: product.imageUrl,
+        id: json.decode(response.body)['name'],
+      );
+      _items.add(newProduct);
+      // _items.insert(0, newProduct); // at the start of the list
+      notifyListeners();
+    } catch (error) {
+      print(error);
+      throw error;
+    }
   }
 
   void updateProduct(String id, Product newProduct) {
