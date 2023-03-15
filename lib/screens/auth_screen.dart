@@ -3,6 +3,10 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/src/foundation/key.dart';
 import 'package:flutter/src/widgets/framework.dart';
+import 'package:provider/provider.dart';
+import 'package:shop_app/models/http_exception.dart';
+import 'package:shop_app/models/http_exception.dart';
+import '../providers/auth.dart';
 
 enum AuthMode { Signup, Login }
 
@@ -98,7 +102,30 @@ class _AuthCardState extends State<AuthCard> {
   };
   var _isLoading = false;
   final _passwordController = TextEditingController();
-  void _submit() {
+
+  void _showErrorDialog(String message) {
+    showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              title: Text('An Error Occurred!'),
+              content: Text(message),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                  },
+                  child: Text(
+                    'Okay',
+                    style: TextStyle(
+                      fontSize: 18,
+                    ),
+                  ),
+                )
+              ],
+            ));
+  }
+
+  Future<void> _submit() async {
     if (!_formKey.currentState.validate()) {
       return;
     }
@@ -106,11 +133,50 @@ class _AuthCardState extends State<AuthCard> {
     setState(() {
       _isLoading = true;
     });
-    if (_authMode == AuthMode.Login) {
-      // Log user in
-    } else {
-      // Sign user up
+    try {
+      if (_authMode == AuthMode.Login) {
+        // Log user in
+        await Provider.of<Auth>(context, listen: false)
+            .login(_authData['email'], _authData['password']);
+      } else {
+        // Sign user up
+        await Provider.of<Auth>(context, listen: false)
+            .singup(_authData['email'], _authData['password']);
+      }
+      // Navigator.of(context).pushReplacementNamed("/products-overview");
+    } on HttpException catch (error) {
+      var errorMessage = 'Authentication failed';
+      switch (error.toString()) {
+        case 'EMAIL_EXISTS':
+          errorMessage = 'This email address is already in use.';
+          break;
+        case 'OPERATION_NOT_ALLOWED':
+          errorMessage = 'Password sign-in is disabled for this project.';
+          break;
+        case 'TOO_MANY_ATTEMPTS_TRY_LATER':
+          errorMessage =
+              'We have blocked all requests from this device due to unusual activity. Try again later.';
+          break;
+        case 'EMAIL_NOT_FOUND':
+          errorMessage =
+              'There is no user record corresponding to this identifier. The user may have been deleted.';
+          break;
+        case 'INVALID_PASSWORD':
+          errorMessage =
+              'The password is invalid or the user does not have a password.';
+          break;
+        case 'USER_DISABLED':
+          errorMessage =
+              'The user account has been disabled by an administrator.';
+          break;
+      }
+      _showErrorDialog(errorMessage);
+    } catch (error) {
+      var errorMessage = 'Could not authenticate you. Please try again later.';
+      print(error);
+      _showErrorDialog(errorMessage);
     }
+
     setState(() {
       _isLoading = false;
     });
